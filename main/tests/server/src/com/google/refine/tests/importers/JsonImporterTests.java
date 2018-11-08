@@ -35,6 +35,7 @@ package com.google.refine.tests.importers;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.util.LinkedList;
 
@@ -95,7 +96,6 @@ public class JsonImporterTests extends ImporterTest {
     public void canParseSample(){
         RunTest(getSample());
 
-        log(project);
         assertProjectCreated(project, 4, 6);
 
         Row row = project.rows.get(0);
@@ -108,7 +108,6 @@ public class JsonImporterTests extends ImporterTest {
     public void canParseSampleWithDuplicateNestedElements(){
         RunTest(getSampleWithDuplicateNestedElements());
 
-        log(project);
         assertProjectCreated(project, 4, 12);
 
         Row row = project.rows.get(0);
@@ -124,7 +123,6 @@ public class JsonImporterTests extends ImporterTest {
 
         RunTest(getSampleWithLineBreak());
 
-        log(project);
         assertProjectCreated(project, 4, 6);
 
         Row row = project.rows.get(3);
@@ -138,7 +136,6 @@ public class JsonImporterTests extends ImporterTest {
     public void testElementsWithVaryingStructure(){
         RunTest(getSampleWithVaryingStructure());
 
-        log(project);
         assertProjectCreated(project, 5, 6);
 
         Assert.assertEquals( project.columnModel.getColumnByCellIndex(4).getName(), JsonImporter.ANONYMOUS + " - genre");
@@ -155,7 +152,6 @@ public class JsonImporterTests extends ImporterTest {
     @Test
     public void testElementWithNestedTree(){
         RunTest(getSampleWithTreeStructure());
-        log(project);
         assertProjectCreated(project, 5, 6);
 
         Assert.assertEquals(project.columnModel.columnGroups.size(),1);
@@ -179,7 +175,6 @@ public class JsonImporterTests extends ImporterTest {
         JSONUtilities.safePut(options, "recordPath", path);
 
         RunTest(mqlOutput, options);
-        log(project);
         assertProjectCreated(project,3,16);
     }
     
@@ -213,7 +208,6 @@ public class JsonImporterTests extends ImporterTest {
             "    }\n" +
             "]\n";
         RunTest(ScraperwikiOutput);
-        log(project);
         assertProjectCreated(project,9,2);
     }
         
@@ -298,7 +292,6 @@ public class JsonImporterTests extends ImporterTest {
     public void testJsonDatatypes(){
         RunTest(getSampleWithDataTypes());
 
-        log(project);
         assertProjectCreated(project, 2, 21,4);
 
         Assert.assertEquals( project.columnModel.getColumnByCellIndex(0).getName(), JsonImporter.ANONYMOUS + " - id");
@@ -363,6 +356,20 @@ public class JsonImporterTests extends ImporterTest {
         // TODO: check data types
     }
 
+
+    @Test
+    public void testComplexJsonStructure() throws IOException{
+        String fileName = "grid_small.json";
+        RunComplexJSONTest(getComplexJSON(fileName));
+
+        logger.info("************************ columnu number:" + project.columnModel.columns.size() + 
+                ". \tcolumn groups number:" + project.columnModel.columnGroups.size() + 
+                ".\trow number:" + project.rows.size() + ".\trecord number:" + project.recordModel.getRecordCount()) ;
+        
+        
+        assertProjectCreated(project, 63, 63, 8);
+    }   
+    
     //------------helper methods---------------
 
     private static String getTypicalElement(int id){
@@ -397,13 +404,13 @@ public class JsonImporterTests extends ImporterTest {
         return sb.toString();
     }
     
-    private static JSONObject getOptions(ImportingJob job, TreeImportingParserBase parser) {
+    private static JSONObject getOptions(ImportingJob job, TreeImportingParserBase parser, String pathSelector) {
         JSONObject options = parser.createParserUIInitializationData(
                 job, new LinkedList<JSONObject>(), "text/json");
         
         JSONArray path = new JSONArray();
         JSONUtilities.append(path, JsonImporter.ANONYMOUS);
-        JSONUtilities.append(path, JsonImporter.ANONYMOUS);
+        JSONUtilities.append(path, pathSelector);
         
         JSONUtilities.safePut(options, "recordPath", path);
         JSONUtilities.safePut(options, "trimStrings", false);
@@ -493,7 +500,11 @@ public class JsonImporterTests extends ImporterTest {
     
 
     private void RunTest(String testString) {
-        RunTest(testString, getOptions(job, SUT));
+        RunTest(testString, getOptions(job, SUT, JsonImporter.ANONYMOUS));
+    }
+    
+    private void RunComplexJSONTest(String testString) {
+        RunTest(testString, getOptions(job, SUT, "institutes"));
     }
     
     private void RunTest(String testString, JSONObject options) {
@@ -508,5 +519,13 @@ public class JsonImporterTests extends ImporterTest {
         } catch (Exception e) {
             Assert.fail();
         }
+    }
+    
+    private String getComplexJSON(String fileName) throws IOException {
+        InputStream in = this.getClass().getClassLoader()
+                .getResourceAsStream(fileName);
+        String content = org.apache.commons.io.IOUtils.toString(in);
+        
+        return content;
     }
 }

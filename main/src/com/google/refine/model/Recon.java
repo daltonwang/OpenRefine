@@ -39,9 +39,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
-import org.codehaus.jackson.JsonFactory;
-import org.codehaus.jackson.JsonParser;
-import org.codehaus.jackson.JsonToken;
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonToken;
 import org.json.JSONException;
 import org.json.JSONWriter;
 
@@ -51,8 +51,14 @@ import com.google.refine.util.Pool;
  
 public class Recon implements HasFields, Jsonizable {
     
+    /**
+     * Freebase schema URLs kept for compatibility with legacy reconciliation results
+     */
     private static final String FREEBASE_SCHEMA_SPACE = "http://rdf.freebase.com/ns/type.object.id";
     private static final String FREEBASE_IDENTIFIER_SPACE = "http://rdf.freebase.com/ns/type.object.mid";
+    
+    private static final String WIKIDATA_SCHEMA_SPACE = "http://www.wikidata.org/prop/direct/";
+    private static final String WIKIDATA_IDENTIFIER_SPACE = "http://www.wikidata.org/entity/";
 
     static public enum Judgment {
         None,
@@ -84,8 +90,7 @@ public class Recon implements HasFields, Jsonizable {
     static final public int Feature_nameMatch = 1;
     static final public int Feature_nameLevenshtein = 2;
     static final public int Feature_nameWordDistance = 3;
-    static final public int Feature_qaResult = 4;
-    static final public int Feature_max = 5;
+    static final public int Feature_max = 4;
 
     static final protected Map<String, Integer> s_featureMap = new HashMap<String, Integer>();
     static {
@@ -93,7 +98,6 @@ public class Recon implements HasFields, Jsonizable {
         s_featureMap.put("nameMatch", Feature_nameMatch);
         s_featureMap.put("nameLevenshtein", Feature_nameLevenshtein);
         s_featureMap.put("nameWordDistance", Feature_nameWordDistance);
-        s_featureMap.put("qaResult", Feature_qaResult);
     }
     
     final public long            id;
@@ -112,11 +116,19 @@ public class Recon implements HasFields, Jsonizable {
     public ReconCandidate        match = null;
     public int                   matchRank = -1;
     
+    @Deprecated
     static public Recon makeFreebaseRecon(long judgmentHistoryEntry) {
         return new Recon(
             judgmentHistoryEntry,
             FREEBASE_IDENTIFIER_SPACE,
             FREEBASE_SCHEMA_SPACE);
+    }
+    
+    static public Recon makeWikidataRecon(long judgmentHistoryEntry) {
+        return new Recon(
+            judgmentHistoryEntry,
+            WIKIDATA_IDENTIFIER_SPACE,
+            WIKIDATA_SCHEMA_SPACE);
     }
     
     public Recon(long judgmentHistoryEntry, String identifierSpace, String schemaSpace) {

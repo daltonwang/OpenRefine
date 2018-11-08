@@ -725,7 +725,11 @@
       var css = this.options.css;
       var li = $("<li>").addClass(css.item);
       var label = $("<label>").text(data.name);
-      li.append($("<div>").addClass(css.item_name).append(label));
+      var div = $("<div>").addClass(css.item_name).append(label);
+      if(data.description) {
+          div.append($('<span></span>').text(data.description));
+      }
+      li.append(div);
       return li;
     },
 
@@ -1291,6 +1295,9 @@
           type.text(data.id);
       }
       name.prepend(type);
+      if(data.description) {
+          name.append($("<span></span>").text(data.description));
+      }
 
       //console.log("create_item", li);
       return li;
@@ -1455,7 +1462,7 @@
 
       //this.flyoutpane.hide();
       var flyout_id = data.id;
-      var url = this.flyout_url.replace(/\$\{id\}/g, data.id);
+      var url = this.flyout_url.replace(/\$\{id\}/g, encodeURIComponent(data.id));
 
       var ajax_options = {
         url: url,
@@ -1825,7 +1832,7 @@
       }
       else {
         id = data['mid'];
-        image = flyout_image_url.replace(/\$\{id\}/g, id);
+        image = flyout_image_url.replace(/\$\{id\}/g, encodeURIComponent(id));
       }
 
       var desc_text = null;

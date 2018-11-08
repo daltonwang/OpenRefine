@@ -33,6 +33,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 package com.google.refine.tests.util;
 
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
+import java.util.Map;
+
+import org.apache.commons.lang3.text.StrSubstitutor;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.slf4j.LoggerFactory;
@@ -84,5 +90,58 @@ public class ParsingUtilitiesTests extends RefineTest {
         } catch (JSONException e) {
             //expected
         }
+    }
+    @Test
+    public void zonedDateTimeTest() {
+        String  d = "2017-12-01T14:53:36Z";
+        DateTimeFormatter formatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
+        OffsetDateTime.parse(d, formatter);
+    }
+    
+    @Test
+    public void parseProjectBeforeJDK8() {
+        String historyEntryDate = "2017-12-01T14:53:36Z";
+        
+        OffsetDateTime zdt = ParsingUtilities.stringToDate(historyEntryDate);
+        String zdtString = ParsingUtilities.dateToString(zdt);
+        Assert.assertEquals(zdtString, historyEntryDate);
+    }
+    
+    @Test
+    public void stringToDate() {
+        Assert.assertEquals(2017, ParsingUtilities.stringToDate("2017-04-03T08:09:43.123").getYear());
+        Assert.assertEquals(2017, ParsingUtilities.stringToDate("2017-04-03T08:09:43").getYear());
+        Assert.assertEquals(2017, ParsingUtilities.stringToDate("2017-04-03T08:09:43Z").getYear());
+        Assert.assertEquals(2017, ParsingUtilities.stringToDate("2017-04-03T08:09:43.123Z").getYear());
+        Assert.assertEquals(2017, ParsingUtilities.stringToDate("2017-04-03T08:09:43+00:00").getYear());
+    }
+    
+    @Test
+    public void stringToLocalDate() {
+        Assert.assertEquals(2017, ParsingUtilities.stringToLocalDate("2017-04-03T08:09:43.123").getYear());
+        Assert.assertEquals(2017, ParsingUtilities.stringToLocalDate("2017-04-03T08:09:43").getYear());
+        Assert.assertEquals(2017, ParsingUtilities.stringToLocalDate("2017-04-03T08:09:43Z").getYear());
+        Assert.assertEquals(2017, ParsingUtilities.stringToLocalDate("2017-04-03T08:09:43.123Z").getYear());
+        Assert.assertEquals(2017, ParsingUtilities.stringToLocalDate("2017-04-03T08:09:43+00:00").getYear());
+    }
+    
+    @Test
+    public void parseProjectModifiedBeforeJDK8() {
+        String modified = "2014-01-15T21:46:25Z";
+        Assert.assertNotEquals(ParsingUtilities.stringToLocalDate(modified).toString(), 
+                modified);
+    }
+    
+    @Test
+    public void strSubstitutorTest() {
+        Map<String, String> data = new HashMap<String, String>(6);
+        
+        data.put("value", "1234");
+        data.put("field_format", "String");
+        
+        StrSubstitutor sub = new StrSubstitutor(data);
+        String message = "The value ${value} in row ${row_number} and column ${column_number} is not type ${field_type} and format ${field_format}";
+        String result = sub.replace(message);
+        Assert.assertTrue(result.contains("1234"));
     }
 }

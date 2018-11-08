@@ -35,21 +35,29 @@ package com.google.refine;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.tools.tar.TarOutputStream;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.refine.history.HistoryEntryManager;
 import com.google.refine.model.Project;
+import com.google.refine.model.metadata.IMetadata;
+import com.google.refine.model.metadata.ProjectMetadata;
 import com.google.refine.preference.PreferenceStore;
 import com.google.refine.preference.TopList;
 
@@ -68,8 +76,8 @@ public abstract class ProjectManager {
     // Don't spend more than this much time saving projects if doing a quick save
     static protected final int QUICK_SAVE_MAX_TIME = 1000 * 30; // 30 secs
 
-
     protected Map<Long, ProjectMetadata> _projectsMetadata;
+    protected Map<String, Integer> _projectsTags;// TagName, number of projects having that tag
     protected PreferenceStore            _preferenceStore;
 
     final static Logger logger = LoggerFactory.getLogger("ProjectManager");
@@ -93,11 +101,12 @@ public abstract class ProjectManager {
     transient protected Map<Long, Project> _projects;
 
     static public ProjectManager singleton;
-
-    protected ProjectManager(){
+    
+    protected ProjectManager() {
         _projectsMetadata = new HashMap<Long, ProjectMetadata>();
         _preferenceStore = new PreferenceStore();
         _projects = new HashMap<Long, Project>();
+        _projectsTags = new HashMap<String, Integer>();
 
         preparePreferenceStore(_preferenceStore);
     }
@@ -124,6 +133,18 @@ public abstract class ProjectManager {
         synchronized (this) {
             _projects.put(project.id, project);
             _projectsMetadata.put(project.id, projectMetadata);
+            if (_projectsTags == null)
+                _projectsTags = new HashMap<String, Integer>();
+            String[] tags = projectMetadata.getTags();
+            if (tags != null) {
+                for (String tag : tags) {
+                        if (_projectsTags.containsKey(tag)) {
+                            _projectsTags.put(tag, _projectsTags.get(tag) + 1);
+                        } else {
+                            _projectsTags.put(tag, 1);
+                        }
+                }
+            }
         }
     }
 
@@ -172,17 +193,16 @@ public abstract class ProjectManager {
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
-            }//FIXME what should be the behaviour if metadata is null? i.e. not found
+            }
 
             Project project = getProject(id);
-            if (project != null && metadata != null && metadata.getModified().after(project.getLastSave())) {
+            if (project != null && metadata != null && metadata.getModified().isAfter(project.getLastSave())) {
                 try {
                     saveProject(project);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
-            }//FIXME what should be the behaviour if project is null? i.e. not found or loaded.
-            //FIXME what should happen if the metadata is found, but not the project? or vice versa?
+            }
         }
 
     }
@@ -193,7 +213,7 @@ public abstract class ProjectManager {
      * @param projectId
      * @throws Exception
      */
-    protected abstract void saveMetadata(ProjectMetadata metadata, long projectId) throws Exception;
+    public abstract void saveMetadata(IMetadata metadata, long projectId) throws Exception;
 
     /**
      * Save project to the data store
@@ -238,7 +258,7 @@ public abstract class ProjectManager {
      */
     protected void saveProjects(boolean allModified) {
         List<SaveRecord> records = new ArrayList<SaveRecord>();
-        Date startTimeOfSave = new Date();
+        LocalDateTime startTimeOfSave = LocalDateTime.now();
         
         synchronized (this) {
             for (long id : _projectsMetadata.keySet()) {
@@ -246,23 +266,23 @@ public abstract class ProjectManager {
                 Project project = _projects.get(id); // don't call getProject() as that will load the project.
 
                 if (project != null) {
+                    LocalDateTime projectLastSaveTime = project.getLastSave();
                     boolean hasUnsavedChanges =
-                        metadata.getModified().getTime() >= project.getLastSave().getTime();
+                        !metadata.getModified().isBefore(projectLastSaveTime);
                     // We use >= instead of just > to avoid the case where a newly created project
                     // has the same modified and last save times, resulting in the project not getting
                     // saved at all.
 
                     if (hasUnsavedChanges) {
-                        long msecsOverdue = startTimeOfSave.getTime() - project.getLastSave().getTime();
-
+                        long msecsOverdue = ChronoUnit.MILLIS.between(projectLastSaveTime, startTimeOfSave);
+                        
                         records.add(new SaveRecord(project, msecsOverdue));
-
                     } else if (!project.getProcessManager().hasPending()
-                              && startTimeOfSave.getTime() - project.getLastSave().getTime() > PROJECT_FLUSH_DELAY) {
+                              && ChronoUnit.MILLIS.between(projectLastSaveTime, startTimeOfSave) > PROJECT_FLUSH_DELAY) {
                         
                         /*
-                         *  It's been a while since the project was last saved and it hasn't been
-                         *  modified. We can safely remove it from the cache to save some memory.
+                         * It's been a while since the project was last saved and it hasn't been
+                         * modified. We can safely remove it from the cache to save some memory.
                          */
                         _projects.remove(id).dispose();
                     }
@@ -288,12 +308,10 @@ public abstract class ProjectManager {
                 "Saving all modified projects ..." :
                 "Saving some modified projects ..."
             );
-
-            for (int i = 0;
-                 i < records.size() &&
-                    (allModified || (new Date().getTime() - startTimeOfSave.getTime() < QUICK_SAVE_MAX_TIME));
+             
+            for (int i = 0;i < records.size() &&
+                    (allModified || (ChronoUnit.MILLIS.between(startTimeOfSave, LocalDateTime.now()) < QUICK_SAVE_MAX_TIME));
                  i++) {
-
                 try {
                     saveProject(records.get(i).project);
                 } catch (Exception e) {
@@ -314,7 +332,7 @@ public abstract class ProjectManager {
                 ProjectMetadata metadata = getProjectMetadata(id);
                 Project project = _projects.get(id);
                 if (project != null && !project.getProcessManager().hasPending() 
-                        && metadata.getModified().getTime() < project.getLastSave().getTime()) {
+                        && metadata.getModified().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli() < project.getLastSave().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()) {
                         _projects.remove(id).dispose();
                 }
             }
@@ -331,14 +349,14 @@ public abstract class ProjectManager {
 
     /**
      * Gets the project metadata from memory
-     * Requires that the metadata has already been loaded from the data store
+     * Requires that the metadata has already been loaded from the data store.
      * @param id
      * @return
      */
     public ProjectMetadata getProjectMetadata(long id) {
         return _projectsMetadata.get(id);
     }
-
+    
     /**
      * Gets the project metadata from memory
      * Requires that the metadata has already been loaded from the data store
@@ -348,7 +366,7 @@ public abstract class ProjectManager {
     public ProjectMetadata getProjectMetadata(String name) {
         for (ProjectMetadata pm : _projectsMetadata.values()) {
             if (pm.getName().equals(name)) {
-                return pm;
+                return  pm;
             }
         }
         return null;
@@ -370,16 +388,109 @@ public abstract class ProjectManager {
         }
         return -1;
     }
-
-
+    
     /**
-     * Gets all the project Metadata currently held in memory
+     * A valid user meta data definition should have name and display property
+     * @param placeHolderJsonObj
      * @return
      */
-    public Map<Long, ProjectMetadata> getAllProjectMetadata() {
-        return _projectsMetadata;
+    private boolean isValidUserMetadataDefinition(JSONObject placeHolderJsonObj) {
+        return (placeHolderJsonObj != null &&
+                placeHolderJsonObj.has("name") &&
+            placeHolderJsonObj.has("display"));
+    }
+    
+    public void mergeEmptyUserMetadata(ProjectMetadata metadata) {
+        if (metadata == null)
+            return;
+        
+        // place holder
+        JSONArray userMetadataPreference = null;
+        // actual metadata for project
+        JSONArray jsonObjArray = metadata.getUserMetadata();
+        
+        initDisplay(jsonObjArray);
+        
+        try {
+            String userMeta = (String)_preferenceStore.get(PreferenceStore.USER_METADATA_KEY);
+            if (userMeta == null)
+                return;
+            userMetadataPreference = new JSONArray(userMeta);
+        } catch (JSONException e1) {
+            logger.warn("wrong definition of userMetadata format. Please use form [{\"name\": \"client name\", \"display\":true}, {\"name\": \"progress\", \"display\":false}]");
+            logger.error(ExceptionUtils.getStackTrace(e1));
+        }
+        
+        for (int index = 0; index < userMetadataPreference.length(); index++) {
+            try {
+                boolean found = false;
+                JSONObject placeHolderJsonObj = userMetadataPreference.getJSONObject(index);
+                
+                if (!isValidUserMetadataDefinition(placeHolderJsonObj)) {
+                    logger.warn("Skipped invalid user metadata definition" + placeHolderJsonObj.toString());
+                    continue;
+                }
+
+                for (int i = 0; i < jsonObjArray.length(); i++) {
+                    JSONObject jsonObj = jsonObjArray.getJSONObject(i);
+                    if (jsonObj.getString("name").equals(placeHolderJsonObj.getString("name"))) {
+                        found = true;
+                        jsonObj.put("display", placeHolderJsonObj.get("display"));
+                        break;
+                    }
+                }
+
+                if (!found) {
+                    placeHolderJsonObj.put("value", "");
+                    metadata.getUserMetadata().put(placeHolderJsonObj);
+                    logger.info("Put the placeholder {} for project {}",
+                            placeHolderJsonObj.getString("name"),
+                            metadata.getName());
+                } 
+            } catch (JSONException e) {
+                logger.warn("Exception when mergeEmptyUserMetadata",e);
+            }
+        }
+    }
+    
+    /**
+     * honor the meta data preference
+     * @param jsonObjArray
+     */
+    private void initDisplay(JSONArray jsonObjArray) {
+        for (int index = 0; index < jsonObjArray.length(); index++) {
+            try {
+                JSONObject projectMetaJsonObj = jsonObjArray.getJSONObject(index);
+                projectMetaJsonObj.put("display", false);
+            } catch (JSONException e) {
+                logger.error(ExceptionUtils.getStackTrace(e));
+            }
+        }
     }
 
+    /**
+     * Gets all the project Metadata currently held in memory.
+     * @return
+     */
+    
+    public Map<Long, ProjectMetadata> getAllProjectMetadata() {
+        for(Project project : _projects.values()) {
+            mergeEmptyUserMetadata(project.getMetadata());
+        }
+            
+        return _projectsMetadata;
+    }
+    
+    /**
+     * Gets all the project tags currently held in memory
+     *
+     * @return
+     */
+    public Map<String, Integer> getAllProjectTags() {
+      return _projectsTags;
+    }
+
+    
     /**
      * Gets the required project from the data store
      * If project does not already exist in memory, it is loaded from the data store
@@ -485,8 +596,9 @@ public abstract class ProjectManager {
     *
     * @param ps
     */
-   static protected void preparePreferenceStore(PreferenceStore ps) {
+   public static void preparePreferenceStore(PreferenceStore ps) {
        ps.put("scripting.expressions", new TopList(s_expressionHistoryMax));
        ps.put("scripting.starred-expressions", new TopList(Integer.MAX_VALUE));
    }
+
 }

@@ -1,5 +1,7 @@
 package com.google.refine.tests.importers;
 
+import static org.mockito.Mockito.when;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -10,7 +12,6 @@ import java.util.List;
 import org.json.JSONObject;
 import org.mockito.Mockito;
 
-import com.google.refine.ProjectMetadata;
 import com.google.refine.RefineServlet;
 import com.google.refine.importers.ImportingParserBase;
 import com.google.refine.importers.tree.ImportColumnGroup;
@@ -19,10 +20,11 @@ import com.google.refine.importers.tree.XmlImportUtilities;
 import com.google.refine.importing.ImportingJob;
 import com.google.refine.importing.ImportingManager;
 import com.google.refine.model.Project;
+import com.google.refine.model.metadata.ProjectMetadata;
 import com.google.refine.tests.RefineServletStub;
 import com.google.refine.tests.RefineTest;
 
-abstract class ImporterTest extends RefineTest {
+abstract public class ImporterTest extends RefineTest {
     //mock dependencies
     protected Project project;
     protected ProjectMetadata metadata;
@@ -38,7 +40,9 @@ abstract class ImporterTest extends RefineTest {
         ImportingManager.initialize(servlet);
         project = new Project();
         metadata = new ProjectMetadata();
-        job = ImportingManager.createJob();
+        ImportingJob spiedJob = ImportingManager.createJob();
+        job = Mockito.spy(spiedJob);
+        when(job.getRetrievalRecord()).thenReturn(new JSONObject());
         
         options = Mockito.mock(JSONObject.class);
     }

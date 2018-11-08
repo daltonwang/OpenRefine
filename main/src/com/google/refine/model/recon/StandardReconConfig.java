@@ -38,15 +38,14 @@ import java.io.InputStream;
 import java.io.StringWriter;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -110,8 +109,7 @@ public class StandardReconConfig extends ReconConfig {
         
         JSONObject t = obj.has("type") && !obj.isNull("type") ? obj.getJSONObject("type") : null;
         
-        String limitString = obj.has("limit") && !obj.isNull("limit") ? obj.getString("limit") : "";
-        int limit = "".equals(limitString) ? 0 : Integer.parseInt(limitString); 
+        int limit = obj.has("limit") && !obj.isNull("limit") ? obj.getInt("limit") : 0;
         
         return new StandardReconConfig(
             obj.getString("service"),
@@ -232,6 +230,30 @@ public class StandardReconConfig extends ReconConfig {
     public String getBriefDescription(Project project, String columnName) {
         return "Reconcile cells in column " + columnName + " to type " + typeID;
     }
+    
+    public ReconJob createSimpleJob(String query) {
+        /* Same as createJob, but for simpler queries
+         * without any properties. This is much easier
+         * to generate as there is no need for a Project,
+         * Row and Cell: this means the job can be created
+         * outside the usual context of reconciliation (e.g.
+         * in an importer).
+         */
+        StandardReconJob job = new StandardReconJob();
+        try {
+            StringWriter stringWriter = new StringWriter();
+            JSONWriter jsonWriter = new JSONWriter(stringWriter);
+            jsonWriter.object();
+            jsonWriter.key("query");
+            jsonWriter.value(query);
+            jsonWriter.endObject();
+            job.text = query;
+            job.code = stringWriter.toString();
+            return job;
+        } catch (JSONException je) {
+            return null;
+        }
+    }
 
     @Override
     public ReconJob createJob(Project project, int rowIndex, Row row,
@@ -282,10 +304,8 @@ public class StandardReconConfig extends ReconConfig {
                                 jsonWriter.key("id"); jsonWriter.value(cell2.recon.match.id);
                                 jsonWriter.key("name"); jsonWriter.value(cell2.recon.match.name);
                                 jsonWriter.endObject();
-                            } else if (cell2.value instanceof Calendar) {
-                                jsonWriter.value(ParsingUtilities.dateToString(((Calendar) cell2.value).getTime()));
-                            } else if (cell2.value instanceof Date) {
-                                jsonWriter.value(ParsingUtilities.dateToString((Date) cell2.value));
+                            } else if (cell2.value instanceof OffsetDateTime) {
+                                jsonWriter.value(ParsingUtilities.dateToString((OffsetDateTime) cell2.value));
                             } else {
                                 jsonWriter.value(cell2.value.toString());
                             }

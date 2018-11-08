@@ -33,17 +33,25 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 package com.google.refine.util;
 
+import java.io.StringWriter;
+import java.io.Writer;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collection;
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.json.JSONWriter;
+
+import com.google.refine.Jsonizable;
 
 public class JSONUtilities {
     static public JSONObject getObject(JSONObject obj, String key) {
@@ -94,9 +102,19 @@ public class JSONUtilities {
         }
     }
     
-    static public Date getDate(JSONObject obj, String key, Date def) {
+    static public OffsetDateTime getDate(JSONObject obj, String key, OffsetDateTime def) {
         try {
-            Date d = ParsingUtilities.stringToDate(obj.getString(key));
+            OffsetDateTime d = ParsingUtilities.stringToDate(obj.getString(key));
+            
+            return d != null ? d : def;
+        } catch (JSONException e) {
+            return def;
+        }
+    }
+    
+    static public LocalDateTime getLocalDate(JSONObject obj, String key, LocalDateTime def) {
+        try {
+            LocalDateTime d = ParsingUtilities.stringToLocalDate(obj.getString(key));
             
             return d != null ? d : def;
         } catch (JSONException e) {
@@ -110,6 +128,10 @@ public class JSONUtilities {
         } catch (JSONException e) {
             return null;
         }
+    }
+    
+    static public JSONArray arrayToJSONArray(String[] array) {
+        return new JSONArray(Arrays.asList(array));
     }
     
     static public int[] getIntArray(JSONObject obj, String key) {
@@ -179,10 +201,8 @@ public class JSONUtilities {
             obj.put(key, ((Double) value).doubleValue());
         } else if (value instanceof Boolean) {
             obj.put(key, value);
-        } else if (value instanceof Date) {
-            obj.put(key, ParsingUtilities.dateToString((Date) value));
         } else if (value instanceof Calendar) {
-            obj.put(key, ParsingUtilities.dateToString(((Calendar) value).getTime()));
+            obj.put(key, ParsingUtilities.dateToString(OffsetDateTime.ofInstant(((Calendar)value).toInstant(), ZoneId.of("Z"))));
         } else if (value instanceof String) {
             obj.put(key, value);
         } else {
@@ -263,6 +283,15 @@ public class JSONUtilities {
         }
     }
     
+    static public void safeInc(JSONObject obj, String key) {
+        try {
+            int currentValue = obj.getInt(key);
+            safePut(obj, key, currentValue + 1);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+    }
+    
     static public void safePut(JSONObject obj, String key, long value) {
         try {
             obj.put(key, value);
@@ -339,5 +368,24 @@ public class JSONUtilities {
         }
         
         return list;
+    }
+    
+    static public void concatArray(JSONArray destArray, JSONArray srcArray)
+            throws JSONException {
+        for (int i = 0; i < srcArray.length(); i++) {
+            destArray.put(srcArray.get(i));
+        }
+    }
+    
+    static public String serialize(Jsonizable obj, Properties options) {
+        Writer w = new StringWriter();
+        JSONWriter jsonWriter = new JSONWriter(w);
+        obj.write(jsonWriter, options);
+        return w.toString();
+    }
+    
+    static public String serialize(Jsonizable obj) {
+        Properties options = new Properties();
+        return serialize(obj, options);
     }
 }

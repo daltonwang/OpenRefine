@@ -41,8 +41,10 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.HashMap;
 import java.util.Properties;
 import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 
 import org.apache.tools.tar.TarEntry;
 import org.apache.tools.tar.TarInputStream;
@@ -56,10 +58,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.refine.ProjectManager;
-import com.google.refine.ProjectMetadata;
 import com.google.refine.history.HistoryEntryManager;
 import com.google.refine.model.Project;
+import com.google.refine.model.metadata.DataPackageMetadata;
+import com.google.refine.model.metadata.IMetadata;
+import com.google.refine.model.metadata.MetadataFormat;
+import com.google.refine.model.metadata.ProjectMetadata;
 import com.google.refine.preference.TopList;
+
 
 public class FileProjectManager extends ProjectManager {
     final static protected String PROJECT_DIR_SUFFIX = ".project";
@@ -120,6 +126,19 @@ public class FileProjectManager extends ProjectManager {
             }
             if (metadata != null) {
                 _projectsMetadata.put(projectID, metadata);
+                if (_projectsTags == null) {
+                    _projectsTags = new HashMap<String, Integer>();
+                }
+                
+                if (metadata != null && metadata.getTags() != null) {
+                    for (String tag : metadata.getTags()) {
+                      if (_projectsTags.containsKey(tag)) {
+                        _projectsTags.put(tag, _projectsTags.get(tag) + 1);
+                      } else {
+                        _projectsTags.put(tag, 1);
+                      }
+                    }
+                }
                 return true;
             } else {
                 return false;
@@ -139,7 +158,7 @@ public class FileProjectManager extends ProjectManager {
             untar(destDir, inputStream);
         }
     }
-
+        
     protected void untar(File destDir, InputStream inputStream) throws IOException {
         TarInputStream tin = new TarInputStream(inputStream);
         TarEntry tarEntry = null;
@@ -215,9 +234,19 @@ public class FileProjectManager extends ProjectManager {
     }
 
     @Override
-    protected void saveMetadata(ProjectMetadata metadata, long projectId) throws Exception {
+    public void saveMetadata(IMetadata metadata, long projectId) throws Exception {
         File projectDir = getProjectDir(projectId);
-        ProjectMetadataUtilities.save(metadata, projectDir);
+        
+        if (metadata.getFormatName() == MetadataFormat.PROJECT_METADATA) {
+            Project project = ProjectManager.singleton.getProject(projectId);
+            ((ProjectMetadata)metadata).setRowCount(project.rows.size());
+            ProjectMetadataUtilities.save(metadata, projectDir);
+        } else if (metadata.getFormatName() == MetadataFormat.DATAPACKAGE_METADATA) {
+            DataPackageMetadata dp = (DataPackageMetadata)metadata;
+            dp.writeToFile(new File(projectDir, DataPackageMetadata.DEFAULT_FILE_NAME));
+        }
+        
+        logger.info("metadata saved in " + metadata.getFormatName());
     }
 
     @Override
@@ -283,6 +312,8 @@ public class FileProjectManager extends ProjectManager {
                 if (metadata != null) {
                     jsonWriter.value(id);
                     if (metadata.isDirty()) {
+                        Project project = ProjectManager.singleton.getProject(id);
+                        metadata.setRowCount(project.rows.size());
                         ProjectMetadataUtilities.save(metadata, getProjectDir(id));
                         saveWasNeeded = true;
                     }
@@ -301,8 +332,6 @@ public class FileProjectManager extends ProjectManager {
         }
         return saveWasNeeded;
     }
-
-
 
     @Override
     public void deleteProject(long projectID) {
@@ -345,8 +374,6 @@ public class FileProjectManager extends ProjectManager {
     protected boolean loadFromFile(File file) {
         logger.info("Loading workspace: {}", file.getAbsolutePath());
 
-        _projectsMetadata.clear();
-
         boolean found = false;
 
         if (file.exists() || file.canRead()) {
@@ -355,6 +382,11 @@ public class FileProjectManager extends ProjectManager {
                 reader = new FileReader(file);
                 JSONTokener tokener = new JSONTokener(reader);
                 JSONObject obj = (JSONObject) tokener.nextValue();
+                
+                // load global preferences firstly
+                if (obj.has("preferences") && !obj.isNull("preferences")) {
+                    _preferenceStore.load(obj.getJSONObject("preferences"));
+                }
 
                 JSONArray a = obj.getJSONArray("projectIDs");
                 int count = a.length();
@@ -363,12 +395,20 @@ public class FileProjectManager extends ProjectManager {
 
                     File projectDir = getProjectDir(id);
                     ProjectMetadata metadata = ProjectMetadataUtilities.load(projectDir);
+                    
+                    mergeEmptyUserMetadata(metadata);
 
                     _projectsMetadata.put(id, metadata);
-                }
-
-                if (obj.has("preferences") && !obj.isNull("preferences")) {
-                    _preferenceStore.load(obj.getJSONObject("preferences"));
+                    
+                    if (metadata != null && metadata.getTags() != null) {
+                        for (String tag : metadata.getTags()) {
+                          if (_projectsTags.containsKey(tag)) {
+                            _projectsTags.put(tag, _projectsTags.get(tag) + 1);
+                          } else {
+                            _projectsTags.put(tag, 1);
+                          }
+                        }
+                    }
                 }
 
                 if (obj.has("expressions") && !obj.isNull("expressions")) { // backward compatibility
@@ -432,5 +472,16 @@ public class FileProjectManager extends ProjectManager {
     @Override
     public HistoryEntryManager getHistoryEntryManager(){
         return new FileHistoryEntryManager();
+    }
+    
+    public static void gzipTarToOutputStream(Project project, OutputStream os) throws IOException {
+        GZIPOutputStream gos = new GZIPOutputStream(os);
+        TarOutputStream tos = new TarOutputStream(gos);
+        try {
+            ProjectManager.singleton.exportProject(project.id, tos);
+        } finally {
+            tos.close();
+            gos.close();
+        }
     }
 }

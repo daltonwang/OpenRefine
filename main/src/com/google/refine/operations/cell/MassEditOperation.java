@@ -46,6 +46,7 @@ import org.json.JSONObject;
 import org.json.JSONWriter;
 
 import com.google.refine.Jsonizable;
+import com.google.refine.browsing.EngineConfig;
 import com.google.refine.browsing.RowVisitor;
 import com.google.refine.expr.Evaluable;
 import com.google.refine.expr.ExpressionUtils;
@@ -59,6 +60,7 @@ import com.google.refine.model.changes.CellChange;
 import com.google.refine.operations.EngineDependentMassCellOperation;
 import com.google.refine.operations.OperationRegistry;
 import com.google.refine.util.ParsingUtilities;
+import com.google.refine.util.StringUtils;
 
 public class MassEditOperation extends EngineDependentMassCellOperation {
     final protected String         _expression;
@@ -100,7 +102,7 @@ public class MassEditOperation extends EngineDependentMassCellOperation {
                 obj.getJSONObject("engineConfig") : null;
         
         return new MassEditOperation(
-            engineConfig,
+            EngineConfig.reconstruct(engineConfig),
             obj.getString("columnName"),
             obj.getString("expression"),
             reconstructEdits(obj.getJSONArray("edits"))
@@ -121,13 +123,13 @@ public class MassEditOperation extends EngineDependentMassCellOperation {
                 
                 from = new ArrayList<String>(fromCount);
                 for (int j = 0; j < fromCount; j++) {
-                    from.add(fromA.getString(j));
+                    from.add(fromA.get(j).toString());
                 }
             } else {
                 from = new ArrayList<String>();
             }
             
-            boolean fromBlank = editO.has("fromBlank") && editO.getBoolean("fromBlank");
+            boolean fromBlank = (editO.has("fromBlank") && editO.getBoolean("fromBlank") || from.get(0).length() == 0 && from.size() == 1);
             boolean fromError = editO.has("fromError") && editO.getBoolean("fromError");
             
             Serializable to = (Serializable) editO.get("to");
@@ -144,7 +146,7 @@ public class MassEditOperation extends EngineDependentMassCellOperation {
         return edits;
     }
     
-    public MassEditOperation(JSONObject engineConfig, String columnName, String expression, List<Edit> edits) {
+    public MassEditOperation(EngineConfig engineConfig, String columnName, String expression, List<Edit> edits) {
         super(engineConfig, columnName, true);
         _expression = expression;
         _edits = edits;
@@ -157,7 +159,7 @@ public class MassEditOperation extends EngineDependentMassCellOperation {
         writer.object();
         writer.key("op"); writer.value(OperationRegistry.s_opClassToName.get(this.getClass()));
         writer.key("description"); writer.value(getBriefDescription(null));
-        writer.key("engineConfig"); writer.value(getEngineConfig());
+        writer.key("engineConfig"); getEngineConfig().write(writer, options);
         writer.key("columnName"); writer.value(_columnName);
         writer.key("expression"); writer.value(_expression);
         writer.key("edits");
@@ -259,7 +261,7 @@ public class MassEditOperation extends EngineDependentMassCellOperation {
                         newCell = new Cell(fromErrorTo, (cell != null) ? cell.recon : null);
                     }
                 } else if (ExpressionUtils.isNonBlankData(v)) {
-                    String from = v.toString();
+                    String from = StringUtils.toString(v);
                     Serializable to = fromTo.get(from);
                     if (to != null) {
                         newCell = new Cell(to, (cell != null) ? cell.recon : null);

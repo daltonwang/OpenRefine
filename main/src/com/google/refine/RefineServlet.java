@@ -60,7 +60,7 @@ import edu.mit.simile.butterfly.Butterfly;
 import edu.mit.simile.butterfly.ButterflyModule;
 
 public class RefineServlet extends Butterfly {
-    static private String ASSIGNED_VERSION = "2.6";
+    static private String ASSIGNED_VERSION = "3.1-beta";
     
     static public String VERSION = "";
     static public String REVISION = "";
@@ -85,8 +85,6 @@ public class RefineServlet extends Butterfly {
 
     static final Logger logger = LoggerFactory.getLogger("refine");
 
-    static final protected long AUTOSAVE_PERIOD = 5; // 5 minutes
-    
     static protected class AutoSaveTimerTask implements Runnable {
         @Override
         public void run() {
@@ -126,10 +124,13 @@ public class RefineServlet extends Butterfly {
         if (data == null) {
             throw new ServletException("can't find servlet init config 'refine.data', I have to give up initializing");
         }
-
+        logger.error("initializing FileProjectManager with dir");
+        logger.error(data);
         s_dataDir = new File(data);
         FileProjectManager.initialize(s_dataDir);
         ImportingManager.initialize(this);
+
+	long AUTOSAVE_PERIOD = Long.parseLong(getInitParameter("refine.autosave"));
 
         service.scheduleWithFixedDelay(new AutoSaveTimerTask(), AUTOSAVE_PERIOD, 
                 AUTOSAVE_PERIOD, TimeUnit.MINUTES);

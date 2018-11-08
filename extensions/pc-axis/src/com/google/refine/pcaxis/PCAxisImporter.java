@@ -41,10 +41,10 @@ import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.refine.ProjectMetadata;
 import com.google.refine.importers.TabularImportingParserBase;
 import com.google.refine.importing.ImportingJob;
 import com.google.refine.model.Project;
+import com.google.refine.model.metadata.ProjectMetadata;
 import com.google.refine.util.JSONUtilities;
 
 public class PCAxisImporter extends TabularImportingParserBase {
@@ -88,5 +88,7 @@ public class PCAxisImporter extends TabularImportingParserBase {
         TabularImportingParserBase.readTable(
             project, metadata, job, dataReader,
             fileSource, limit, options, exceptions);
+        
+        super.parseOneFile(project, metadata, job, fileSource, reader, limit, options, exceptions);
     }
 }

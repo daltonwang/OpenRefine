@@ -35,34 +35,34 @@ package com.google.refine.io;
 
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
-import java.util.Date;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.json.JSONException;
-import org.json.JSONObject;
-import org.json.JSONTokener;
 import org.json.JSONWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.refine.ProjectMetadata;
 import com.google.refine.model.Project;
-
+import com.google.refine.model.metadata.IMetadata;
+import com.google.refine.model.metadata.ProjectMetadata;
 
 public class ProjectMetadataUtilities {
     final static Logger logger = LoggerFactory.getLogger("project_metadata_utilities");
-
-    public static void save(ProjectMetadata projectMeta, File projectDir) throws JSONException, IOException  {
-        File tempFile = new File(projectDir, "metadata.temp.json");
+    
+    public static void save(IMetadata projectMeta, File projectDir) throws JSONException, IOException  {
+        File tempFile = new File(projectDir, ProjectMetadata.TEMP_FILE_NAME);
         saveToFile(projectMeta, tempFile);
 
-        File file = new File(projectDir, "metadata.json");
-        File oldFile = new File(projectDir, "metadata.old.json");
+        File file = new File(projectDir, ProjectMetadata.DEFAULT_FILE_NAME);
+        File oldFile = new File(projectDir, ProjectMetadata.OLD_FILE_NAME);
 
         if (oldFile.exists()) {
             oldFile.delete();
@@ -74,34 +74,46 @@ public class ProjectMetadataUtilities {
 
         tempFile.renameTo(file);
     }
-
-    protected static void saveToFile(ProjectMetadata projectMeta, File metadataFile) throws JSONException, IOException   {
+    
+    protected static void saveToFile(IMetadata projectMeta, File metadataFile) throws JSONException, IOException   {
         Writer writer = new OutputStreamWriter(new FileOutputStream(metadataFile));
         try {
             JSONWriter jsonWriter = new JSONWriter(writer);
-            projectMeta.write(jsonWriter);
+            projectMeta.write(jsonWriter, false);
         } finally {
             writer.close();
         }
     }
 
     static public ProjectMetadata load(File projectDir) {
-        try {
-            return loadFromFile(new File(projectDir, "metadata.json"));
-        } catch (Exception e) {
-        }
+        ProjectMetadata pm = null;
+        
+        pm = loadMetaDataIfExist(projectDir, ProjectMetadata.DEFAULT_FILE_NAME);
 
-        try {
-            return loadFromFile(new File(projectDir, "metadata.temp.json"));
-        } catch (Exception e) {
+        if (pm == null) {
+            pm = loadMetaDataIfExist(projectDir, ProjectMetadata.TEMP_FILE_NAME);
+        } 
+        
+        if (pm == null) {
+            pm = loadMetaDataIfExist(projectDir, ProjectMetadata.OLD_FILE_NAME);
         }
+        
+        return pm;
+    }
 
-        try {
-            return loadFromFile(new File(projectDir, "metadata.old.json"));
-        } catch (Exception e) {
+    private static ProjectMetadata loadMetaDataIfExist(File projectDir, String fileName) {
+        ProjectMetadata pm = null;
+        File file = new File(projectDir, fileName);
+        if (file.exists()) {
+            try {
+               pm = loadFromFile(file);
+            } catch (Exception e) {
+                logger.warn("load metadata failed: " + file.getAbsolutePath());
+                logger.error(ExceptionUtils.getStackTrace(e));
+            }
         }
-
-        return null;
+        
+        return pm;
     }
     
     /**
@@ -137,21 +149,17 @@ public class ProjectMetadataUtilities {
                     mtime = Math.max(mtime, time);
                 }
             }
-            pm = new ProjectMetadata(new Date(ctime),new Date(mtime), tempName);
+            pm = new ProjectMetadata(LocalDateTime.ofInstant(Instant.ofEpochMilli(ctime), ZoneId.systemDefault()),
+                    LocalDateTime.ofInstant(Instant.ofEpochMilli(mtime), ZoneId.systemDefault()),
+                    tempName);
             logger.error("Partially recovered missing metadata project in directory " + projectDir + " - " + tempName);
         }
         return pm;
     }
 
     static protected ProjectMetadata loadFromFile(File metadataFile) throws Exception {
-        FileReader reader = new FileReader(metadataFile);
-        try {
-            JSONTokener tokener = new JSONTokener(reader);
-            JSONObject obj = (JSONObject) tokener.nextValue();
-
-            return ProjectMetadata.loadFromJSON(obj);
-        } finally {
-            reader.close();
-        }
+        ProjectMetadata projectMetaData =  new ProjectMetadata();
+        projectMetaData.loadFromFile(metadataFile);
+        return projectMetaData;
     }
 }

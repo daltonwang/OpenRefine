@@ -40,6 +40,9 @@ import org.json.JSONException;
 import org.json.JSONObject;
 import org.json.JSONWriter;
 
+import com.google.refine.browsing.Engine;
+import com.google.refine.browsing.Engine.Mode;
+import com.google.refine.browsing.EngineConfig;
 import com.google.refine.browsing.RowVisitor;
 import com.google.refine.expr.ExpressionUtils;
 import com.google.refine.model.AbstractOperation;
@@ -57,13 +60,13 @@ public class FillDownOperation extends EngineDependentMassCellOperation {
         JSONObject engineConfig = obj.getJSONObject("engineConfig");
         
         return new FillDownOperation(
-            engineConfig,
+            EngineConfig.reconstruct(engineConfig),
             obj.getString("columnName")
         );
     }
     
     public FillDownOperation(
-            JSONObject engineConfig, 
+            EngineConfig engineConfig, 
             String columnName
         ) {
         super(engineConfig, columnName, true);
@@ -76,7 +79,7 @@ public class FillDownOperation extends EngineDependentMassCellOperation {
         writer.object();
         writer.key("op"); writer.value(OperationRegistry.s_opClassToName.get(this.getClass()));
         writer.key("description"); writer.value(getBriefDescription(null));
-        writer.key("engineConfig"); writer.value(getEngineConfig());
+        writer.key("engineConfig"); getEngineConfig().write(writer, options);
         writer.key("columnName"); writer.value(_columnName);
         writer.endObject();
     }
@@ -97,21 +100,27 @@ public class FillDownOperation extends EngineDependentMassCellOperation {
     @Override
     protected RowVisitor createRowVisitor(Project project, List<CellChange> cellChanges, long historyEntryID) throws Exception {
         Column column = project.columnModel.getColumnByName(_columnName);
+        Engine engine = createEngine(project);
+        Mode engineMode = engine.getMode();
         
         return new RowVisitor() {
             int                 cellIndex;
+            int 			    keyCellIndex;
             List<CellChange>    cellChanges;
             Cell                previousCell;
+            Mode                engineMode;
             
-            public RowVisitor init(int cellIndex, List<CellChange> cellChanges) {
+            public RowVisitor init(int cellIndex, List<CellChange> cellChanges, Mode engineMode) {
                 this.cellIndex = cellIndex;
                 this.cellChanges = cellChanges;
+                this.engineMode = engineMode;
                 return this;
             }
             
             @Override
             public void start(Project project) {
-                // nothing to do
+                keyCellIndex = project.columnModel.columns.get(
+                		project.columnModel.getKeyColumnIndex()).getCellIndex();
             }
 
             @Override
@@ -122,6 +131,9 @@ public class FillDownOperation extends EngineDependentMassCellOperation {
             @Override
             public boolean visit(Project project, int rowIndex, Row row) {
                 Object value = row.getCellValue(cellIndex);
+                if (engineMode.equals(Mode.RecordBased) && ExpressionUtils.isNonBlankData(row.getCellValue(keyCellIndex))) {
+                    previousCell = null;
+                }
                 if (ExpressionUtils.isNonBlankData(value)) {
                     previousCell = row.getCell(cellIndex);
                 } else if (previousCell != null) {
@@ -130,6 +142,6 @@ public class FillDownOperation extends EngineDependentMassCellOperation {
                 }
                 return false;
             }
-        }.init(column.getCellIndex(), cellChanges);
+        }.init(column.getCellIndex(), cellChanges, engineMode);
     }
 }

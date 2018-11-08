@@ -153,12 +153,8 @@ function initializeUI(uiState) {
   ui.historyPanel = new HistoryPanel(ui.historyPanelDiv, ui.historyTabHeader);
   ui.dataTableView = new DataTableView(ui.viewPanelDiv);
 
-  ui.leftPanelTabs.bind('tabsshow', function(event, tabs) {
-    if (tabs.index === 0) {
-      ui.browsingEngine.resize();
-    } else if (tabs.index === 1) {
-      ui.historyPanel.resize();
-    }
+  ui.leftPanelTabs.bind('tabsactivate', function(event, tabs) {
+    tabs.newPanel.resize();
   });
 
   $(window).bind("resize", resizeAll);
@@ -182,7 +178,7 @@ Refine.reinitializeProjectData = function(f, fError) {
   $.getJSON(
     "command/core/get-project-metadata?" + $.param({ project: theProject.id }), null,
     function(data) {
-      if (data.status == 'error') {
+      if (data.status == "error") {
         alert(data.message);
         if (fError) {
           fError();
@@ -224,7 +220,7 @@ Refine._renameProject = function() {
     data: { "project" : theProject.id, "name" : name },
     dataType: "json",
     success: function (data) {
-      if (data && typeof data.code != 'undefined' && data.code == "ok") {
+      if (data && typeof data.code != "undefined" && data.code == "ok") {
         theProject.metadata.name = name;
         Refine.setTitle();
       } else {
@@ -237,6 +233,8 @@ Refine._renameProject = function() {
 /*
  *  Utility state functions
  */
+
+Refine.customUpdateCallbacks = [];
 
 Refine.createUpdateFunction = function(options, onFinallyDone) {
   var functions = [];
@@ -262,10 +260,35 @@ Refine.createUpdateFunction = function(options, onFinallyDone) {
     });
   }
 
+  // run the callbacks registered by extensions, passing them
+  // the options
+  pushFunction(function(onDone) {
+    for(var i = 0; i != Refine.customUpdateCallbacks.length; i++) {
+        Refine.customUpdateCallbacks[i](options);
+    }
+    onDone();
+  });
+
   functions.push(onFinallyDone || function() {});
 
   return functions[0];
 };
+
+/*
+ * Registers a callback function to be called after each update.
+ * This is provided for extensions which need to run some code when
+ * the project is updated. This was introduced for the Wikidata 
+ * extension as a means to avoid monkey-patching Refine's core
+ * methods (which was the solution adopted for GOKb, as they had
+ * no way to change Refine's code directly).
+ *
+ * The function will be called with an "options" object as above
+ * describing which change has happened, so that the code can run
+ * fine-grained updates.
+ */
+Refine.registerUpdateFunction = function(callback) {
+   Refine.customUpdateCallbacks.push(callback);
+}
 
 Refine.update = function(options, onFinallyDone) {
   var done = false;
@@ -429,9 +452,12 @@ Refine.fetchRows = function(start, limit, onDone, sorting) {
   }
 
   $.post(
-    "command/core/get-rows?" + $.param({ project: theProject.id, start: start, limit: limit }) + "&callback=?",
+    "command/core/get-rows?" + $.param({ project: theProject.id, start: start, limit: limit }),
     body,
     function(data) {
+      if(data.code === "error") {
+        data = theProject.rowModel;
+      }
       theProject.rowModel = data;
 
       // Un-pool objects
@@ -449,7 +475,7 @@ Refine.fetchRows = function(start, limit, onDone, sorting) {
         onDone();
       }
     },
-    "jsonp"
+    "json"
   );
 };
 

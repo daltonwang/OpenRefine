@@ -39,12 +39,11 @@ import java.io.InputStream;
 import java.io.Reader;
 import java.util.List;
 
-import org.apache.commons.lang.NotImplementedException;
+import org.json.JSONException;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.refine.ProjectMetadata;
 import com.google.refine.importers.ImporterUtilities.MultiFileReadingProgress;
 import com.google.refine.importing.ImportingJob;
 import com.google.refine.importing.ImportingParser;
@@ -52,6 +51,7 @@ import com.google.refine.importing.ImportingUtilities;
 import com.google.refine.model.Column;
 import com.google.refine.model.ModelException;
 import com.google.refine.model.Project;
+import com.google.refine.model.metadata.ProjectMetadata;
 import com.google.refine.util.JSONUtilities;
 
 abstract public class ImportingParserBase implements ImportingParser {
@@ -145,7 +145,17 @@ abstract public class ImportingParserBase implements ImportingParser {
         JSONObject options,
         List<Exception> exceptions
     ) {
-        throw new NotImplementedException();
+        pushImportingOptions(metadata, fileSource, options);
+    }
+
+    private void pushImportingOptions(ProjectMetadata metadata, String fileSource, JSONObject options) {
+        try {
+            options.put("fileSource", fileSource);
+        } catch (JSONException e) {
+            // ignore
+        }
+     // set the import options to metadata:
+        metadata.appendImportOptionMetadata(options);
     }
     
     public void parseOneFile(
@@ -158,22 +168,26 @@ abstract public class ImportingParserBase implements ImportingParser {
         JSONObject options,
         List<Exception> exceptions
     ) {
-        throw new NotImplementedException();
+        pushImportingOptions(metadata, fileSource, options);
     }
     
     
     protected static int addFilenameColumn(Project project) {
         String fileNameColumnName = "File";
-        assert project.columnModel.getColumnByName(fileNameColumnName) == null;
-        try {
-            project.columnModel.addColumn(
-                0, new Column(project.columnModel.allocateNewCellIndex(), fileNameColumnName), false);
+        if (project.columnModel.getColumnByName(fileNameColumnName) == null) {
+            try {
+                project.columnModel.addColumn(
+                    0, new Column(project.columnModel.allocateNewCellIndex(), fileNameColumnName), false);
+
+                return 0;
+            } catch (ModelException e) {
+                // Shouldn't happen: We already checked for duplicate name.
+                logger.error("ModelException adding Filename column",e);
+            }
+            return -1;
+        } else {
             return 0;
-        } catch (ModelException e) {
-            // Shouldn't happen: We already checked for duplicate name.
-            logger.error("ModelException adding Filename column",e);
         }
-        return -1;
     }
 
 }

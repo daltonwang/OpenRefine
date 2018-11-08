@@ -39,17 +39,16 @@ import java.io.InputStream;
 import java.io.Serializable;
 import java.util.List;
 
-import org.codehaus.jackson.JsonFactory;
-import org.codehaus.jackson.JsonParseException;
-import org.codehaus.jackson.JsonParser;
-import org.codehaus.jackson.JsonParser.NumberType;
-import org.codehaus.jackson.JsonToken;
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonParser.NumberType;
+import com.fasterxml.jackson.core.JsonToken;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.refine.ProjectMetadata;
 import com.google.refine.importers.tree.ImportColumnGroup;
 import com.google.refine.importers.tree.TreeImportingParserBase;
 import com.google.refine.importers.tree.TreeReader;
@@ -57,6 +56,7 @@ import com.google.refine.importers.tree.TreeReaderException;
 import com.google.refine.importing.ImportingJob;
 import com.google.refine.importing.ImportingUtilities;
 import com.google.refine.model.Project;
+import com.google.refine.model.metadata.ProjectMetadata;
 import com.google.refine.util.JSONUtilities;
 
 public class JsonImporter extends TreeImportingParserBase {
@@ -199,6 +199,8 @@ public class JsonImporter extends TreeImportingParserBase {
         
         parseOneFile(project, metadata, job, fileSource,
             new JSONTreeReader(is), rootColumnGroup, limit, options, exceptions);
+        
+        super.parseOneFile(project, metadata, job, fileSource, is, rootColumnGroup, limit, options, exceptions);
     }
     
     static public class JSONTreeReader implements TreeReader {

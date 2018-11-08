@@ -51,7 +51,6 @@ import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.refine.ProjectMetadata;
 import com.google.refine.importers.tree.ImportColumnGroup;
 import com.google.refine.importers.tree.TreeImportingParserBase;
 import com.google.refine.importers.tree.TreeReader;
@@ -59,6 +58,7 @@ import com.google.refine.importers.tree.TreeReaderException;
 import com.google.refine.importing.ImportingJob;
 import com.google.refine.importing.ImportingUtilities;
 import com.google.refine.model.Project;
+import com.google.refine.model.metadata.ProjectMetadata;
 import com.google.refine.util.JSONUtilities;
 
 public class XmlImporter extends TreeImportingParserBase {
@@ -201,6 +201,8 @@ public class XmlImporter extends TreeImportingParserBase {
         try {
             parseOneFile(project, metadata, job, fileSource,
                 new XmlParser(inputStream), rootColumnGroup, limit, options, exceptions);
+            
+            super.parseOneFile(project, metadata, job, fileSource, inputStream, rootColumnGroup, limit, options, exceptions);
         } catch (XMLStreamException e) {
             exceptions.add(e);
         } catch (IOException e) {

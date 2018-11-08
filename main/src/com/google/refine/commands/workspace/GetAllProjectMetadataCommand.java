@@ -42,12 +42,13 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONWriter;
 
 import com.google.refine.ProjectManager;
-import com.google.refine.ProjectMetadata;
 import com.google.refine.commands.Command;
+import com.google.refine.model.metadata.ProjectMetadata;
 
 public class GetAllProjectMetadataCommand extends Command {
     @Override
@@ -62,6 +63,7 @@ public class GetAllProjectMetadataCommand extends Command {
             Properties options = new Properties();
             
             writer.object();
+            
             writer.key("projects");
                 writer.object();
                 Map<Long, ProjectMetadata> m = ProjectManager.singleton.getAllProjectMetadata();
@@ -69,10 +71,18 @@ public class GetAllProjectMetadataCommand extends Command {
                     ProjectMetadata pm = e.getValue();
                     if (pm != null) {
                         writer.key(e.getKey().toString());
-                        e.getValue().write(writer, options);
+                        pm.write(writer, options);
                     }
                 }
                 writer.endObject();
+            
+            String userMeta = (String)ProjectManager.singleton.getPreferenceStore().get("userMetadata");
+            if (userMeta != null) {
+                writer.key("customMetadataColumns");
+                JSONArray customMetadataColumns = new JSONArray(userMeta);
+                writer.value(customMetadataColumns);
+            }
+                
             writer.endObject();
         } catch (JSONException e) {
             respondException(response, e);

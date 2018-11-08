@@ -35,8 +35,7 @@ package com.google.refine.commands.expr;
 
 import java.io.IOException;
 import java.io.Serializable;
-import java.util.Calendar;
-import java.util.Date;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Properties;
 
@@ -208,14 +207,9 @@ public class PreviewExpressionCommand extends Command {
                     sb.append(" ]");
                 } else if (v instanceof HasFields) {
                     sb.append("[object " + v.getClass().getSimpleName() + "]");
-                } else if (v instanceof Calendar) {
-                    Calendar c = (Calendar) v;
-                    
+                } else if (v instanceof OffsetDateTime) {
                     sb.append("[date " + 
-                        ParsingUtilities.dateToString(c.getTime()) +"]");
-                } else if (v instanceof Date) {
-                    sb.append("[date " + 
-                            ParsingUtilities.dateToString((Date) v) +"]");
+                            ParsingUtilities.dateToString((OffsetDateTime) v) +"]");
                 } else if (v instanceof String) {
                     if (quote) {
                         sb.append(JSONObject.quote((String) v));

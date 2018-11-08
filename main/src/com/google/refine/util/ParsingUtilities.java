@@ -38,10 +38,17 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.UnsupportedEncodingException;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.util.Calendar;
+import java.util.GregorianCalendar;
 import java.util.Properties;
+import java.util.TimeZone;
 
 import javax.servlet.http.HttpServletRequest;
 
@@ -53,16 +60,8 @@ import org.json.JSONObject;
 import org.json.JSONTokener;
 
 public class ParsingUtilities {
-
-    static final private ThreadLocal<SimpleDateFormat> ISO8601_FORMAT = new ThreadLocal<SimpleDateFormat>() {
-
-        @Override
-        protected SimpleDateFormat initialValue() {
-            return new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
-        }
-
-    };
-
+    public static final DateTimeFormatter ISO8601 = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'");
+                
     static public Properties parseUrlParameters(HttpServletRequest request) {
         Properties options = new Properties();
 
@@ -168,26 +167,73 @@ public class ParsingUtilities {
     }
 
     /**
-     * Convert a date/time to an ISO 8601 string
+     * Convert a date/time to an ISO_LOCAL_DATE_TIME string
      * 
      * @param d the date to be written
-     * @return string with ISO 8601 formatted date & time
+     * @return string with ISO_LOCAL_DATE_TIME formatted date & time
      */
-    static public String dateToString(Date d) {
-        return ISO8601_FORMAT.get().format(d);
+    static public String dateToString(OffsetDateTime d) {
+        return d.format(ISO8601);
+    }
+    
+    static public String localDateToString(LocalDateTime d) {
+      OffsetDateTime odt = OffsetDateTime.of(d,
+                OffsetDateTime.now().getOffset());
+      
+      return odt.withOffsetSameInstant(ZoneOffset.of("Z")).format(ISO8601);
     }
 
     /**
-     * Parse an ISO 8601 formatted string into a Java Date.
-     * 
+     * Parse an ISO_LOCAL_DATE_TIME formatted string into a Java Date.
+     * For backward compatibility, to support the version <= 2.8, cannot use the DateTimeFormatter.ISO_OFFSET_DATE_TIME. Instead, use the ISO8601 below format:
+     * yyyy-MM-dd'T'HH:mm:ss'Z'
+     *  
      * @param s the string to be parsed
-     * @return Date or null if the parse failed
+     * @return LocalDateTime or null if the parse failed
      */
-    static public Date stringToDate(String s) {
+    static public OffsetDateTime stringToDate(String s) {
+        // Accept timestamps with an explicit time zone
         try {
-            return ISO8601_FORMAT.get().parse(s);
-        } catch (ParseException e) {
+            return OffsetDateTime.parse(s);
+        } catch(DateTimeParseException e) {
+            
+        }
+        
+        // Also accept timestamps without an explicit zone and
+        // assume them to be in local time.
+        try {
+            LocalDateTime localTime = LocalDateTime.parse(s);
+            return OffsetDateTime.of(localTime, ZoneId.systemDefault().getRules().getOffset(localTime));
+        } catch(DateTimeParseException e) {
+            
+        }
+        return null;
+    }
+    
+    static public LocalDateTime stringToLocalDate(String s) {
+        // parse the string as a date and express it in local time
+        OffsetDateTime parsed = stringToDate(s);
+        if (parsed == null) {
             return null;
         }
+        return parsed.toLocalDateTime();
+    }
+    
+    static public String instantToString(Instant instant) {
+        return OffsetDateTime.ofInstant(instant, ZoneId.of("Z")).format(ISO8601);
+    }
+    
+    static public String instantToLocalDateTimeString(Instant instant) {
+        return LocalDateTime.ofInstant(instant, ZoneId.systemDefault()).format(ISO8601);
+    }
+    
+    static public OffsetDateTime calendarToOffsetDateTime(Calendar calendar) {
+        return calendar.toInstant().atOffset(ZoneOffset.of("Z"));
+    }
+    
+    static public Calendar offsetDateTimeToCalendar(OffsetDateTime offsetDateTime) {
+        Calendar cal = new GregorianCalendar(TimeZone.getTimeZone("Z"));
+        cal.setTimeInMillis(offsetDateTime.toInstant().toEpochMilli());
+        return cal;
     }
 }

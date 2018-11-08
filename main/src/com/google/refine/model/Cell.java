@@ -35,15 +35,18 @@ package com.google.refine.model;
 
 import java.io.Serializable;
 import java.io.Writer;
-import java.util.Calendar;
-import java.util.Date;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Properties;
 
-import org.codehaus.jackson.JsonFactory;
-import org.codehaus.jackson.JsonParser;
-import org.codehaus.jackson.JsonToken;
 import org.json.JSONException;
 import org.json.JSONWriter;
+
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonToken;
 
 import com.google.refine.Jsonizable;
 import com.google.refine.expr.EvalError;
@@ -86,11 +89,15 @@ public class Cell implements HasFields, Jsonizable {
         } else {
             writer.key("v");
             if (value != null) {
-                if (value instanceof Calendar) {
-                    writer.value(ParsingUtilities.dateToString(((Calendar) value).getTime()));
-                    writer.key("t"); writer.value("date");
-                } else if (value instanceof Date) {
-                    writer.value(ParsingUtilities.dateToString((Date) value));
+                Instant instant = null;
+                if (value instanceof OffsetDateTime) {
+                    instant = ((OffsetDateTime)value).toInstant();
+                } else if (value instanceof LocalDateTime) {
+                    instant = ((LocalDateTime)value).toInstant(ZoneOffset.of("Z"));
+                }
+                
+                if (instant != null) {
+                    writer.value(ParsingUtilities.instantToString(instant));
                     writer.key("t"); writer.value("date");
                 } else if (value instanceof Double 
                         && (((Double)value).isNaN() || ((Double)value).isInfinite())) {

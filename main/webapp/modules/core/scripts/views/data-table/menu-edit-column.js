@@ -72,13 +72,12 @@ DataTableColumnHeaderUI.extendMenu(function(column, columnHeaderUI, menu) {
       Refine.postCoreProcess(
         "add-column", 
         {
-          baseColumnName: column.name, 
-          expression: previewWidget.getExpression(true), 
+          baseColumnName: column.name,  
           newColumnName: columnName, 
           columnInsertIndex: columnIndex + 1,
           onError: $('input[name="create-column-dialog-onerror-choice"]:checked')[0].value
         },
-        null,
+        { expression: previewWidget.getExpression(true) },
         { modelsChanged: true },
         {
           onDone: function(o) {
@@ -92,7 +91,9 @@ DataTableColumnHeaderUI.extendMenu(function(column, columnHeaderUI, menu) {
   var doAddColumnByFetchingURLs = function() {
     var frame = $(
         DOM.loadHTML("core", "scripts/views/data-table/add-column-by-fetching-urls-dialog.html")
-        .replace("$EXPRESSION_PREVIEW_WIDGET$", ExpressionPreviewDialog.generateWidgetHtml()));
+        .replace("$EXPRESSION_PREVIEW_WIDGET$", ExpressionPreviewDialog.generateWidgetHtml())
+        .replace("$HTTP_HEADERS_WIDGET$", HttpHeadersDialog.generateWidgetHtml())
+        );
 
     var elmts = DOM.bind(frame);
     elmts.dialogHeader.text($.i18n._('core-views')["add-col-fetch"]+" " + column.name);
@@ -103,6 +104,18 @@ DataTableColumnHeaderUI.extendMenu(function(column, columnHeaderUI, menu) {
     elmts.or_views_onErr.text($.i18n._('core-views')["on-error"]);
     elmts.or_views_setBlank.text($.i18n._('core-views')["set-blank"]);
     elmts.or_views_storeErr.text($.i18n._('core-views')["store-err"]);
+    elmts.or_views_cacheResponses.text($.i18n._('core-views')["cache-responses"]);
+    elmts.or_views_httpHeaders.text($.i18n._('core-views')["http-headers"]);
+    elmts.or_views_httpHeadersShowHide.text($.i18n._('core-views')["show"]);
+    elmts.or_views_httpHeadersShowHide.click(function() {
+                                                          $( ".set-httpheaders-container" ).toggle( "slow", function() {
+                                                            if ($(this).is(':visible')) {
+                                                              elmts.or_views_httpHeadersShowHide.text($.i18n._('core-views')["hide"]);
+                                                            } else {
+                                                              elmts.or_views_httpHeadersShowHide.text($.i18n._('core-views')["show"]);
+                                                            }
+                                                          });
+                                                        });
     elmts.or_views_urlFetch.text($.i18n._('core-views')["url-fetch"]);
     elmts.okButton.html($.i18n._('core-buttons')["ok"]);
     elmts.cancelButton.text($.i18n._('core-buttons')["cancel"]);
@@ -118,7 +131,8 @@ DataTableColumnHeaderUI.extendMenu(function(column, columnHeaderUI, menu) {
       o.values,
       null
     );
-    
+
+
     elmts.cancelButton.click(dismiss);
     elmts.okButton.click(function() {
       var columnName = $.trim(elmts.columnNameInput[0].value);
@@ -126,7 +140,7 @@ DataTableColumnHeaderUI.extendMenu(function(column, columnHeaderUI, menu) {
         alert($.i18n._('core-views')["warning-col-name"]);
         return;
       }
-
+      
       Refine.postCoreProcess(
         "add-column-by-fetching-urls", 
         {
@@ -135,13 +149,42 @@ DataTableColumnHeaderUI.extendMenu(function(column, columnHeaderUI, menu) {
           newColumnName: columnName, 
           columnInsertIndex: columnIndex + 1,
           delay: elmts.throttleDelayInput[0].value,
-          onError: $('input[name="dialog-onerror-choice"]:checked')[0].value
+          onError: $('input[name="dialog-onerror-choice"]:checked')[0].value,
+          cacheResponses: $('input[name="dialog-cache-responses"]')[0].checked,
+          httpHeaders: JSON.stringify(elmts.setHttpHeadersContainer.find("input").serializeArray())
         },
         null,
         { modelsChanged: true }
       );
       dismiss();
     });
+  };
+
+  var doAddColumnByReconciliation = function() {
+    var columnIndex = Refine.columnNameToColumnIndex(column.name);
+    var o = DataTableView.sampleVisibleRows(column);
+    new ExtendReconciledDataPreviewDialog(
+      column, 
+      columnIndex, 
+      o.rowIndices,
+      function(extension, endpoint, identifierSpace, schemaSpace) {
+        Refine.postProcess(
+            "core",
+            "extend-data", 
+            {
+              baseColumnName: column.name,
+	      endpoint: endpoint,
+              identifierSpace: identifierSpace,
+              schemaSpace: schemaSpace,
+              columnInsertIndex: columnIndex + 1
+            },
+            {
+              extension: JSON.stringify(extension)
+            },
+            { rowsChanged: true, modelsChanged: true }
+        );
+      }
+    );
   };
 
   var doRemoveColumn = function() {
@@ -295,6 +338,11 @@ DataTableColumnHeaderUI.extendMenu(function(column, columnHeaderUI, menu) {
         id: "core/add-column-by-fetching-urls",
         label: $.i18n._('core-views')["add-by-urls"]+"...",
         click: doAddColumnByFetchingURLs
+      },
+      {
+        id: "core/add-column-by-reconciliation",
+        label: $.i18n._('core-views')["add-col-recon-val"]+"...",
+        click: doAddColumnByReconciliation
       },
       {},
       {

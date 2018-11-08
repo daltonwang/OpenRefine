@@ -14,10 +14,10 @@ import java.util.List;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import com.google.refine.ProjectMetadata;
 import com.google.refine.importing.ImportingJob;
 import com.google.refine.importing.ImportingUtilities;
 import com.google.refine.model.Project;
+import com.google.refine.model.metadata.ProjectMetadata;
 import com.google.refine.util.JSONUtilities;
 
 public class FixedWidthImporter extends TabularImportingParserBase {
@@ -107,6 +107,8 @@ public class FixedWidthImporter extends TabularImportingParserBase {
         };
         
         TabularImportingParserBase.readTable(project, metadata, job, dataReader, fileSource, limit, options, exceptions);
+        
+        super.parseOneFile(project, metadata, job, fileSource, reader, limit, options, exceptions);
     }
     
     /**

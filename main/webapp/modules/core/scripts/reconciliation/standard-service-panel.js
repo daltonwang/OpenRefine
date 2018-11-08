@@ -87,7 +87,7 @@ ReconStandardServicePanel.prototype._constructUI = function() {
   this._elmts.rawServiceLink.html($.i18n._('core-recon')["service-api"]);
   this._elmts.or_proc_cellType.html($.i18n._('core-recon')["cell-type"]+":");
   this._elmts.or_proc_colDetail.html($.i18n._('core-recon')["col-detail"]+":");
-  this._elmts.or_proc_againsType.html($.i18n._('core-recon')["against-type"]+":");
+  this._elmts.or_proc_againstType.html($.i18n._('core-recon')["against-type"]+":");
   this._elmts.or_proc_noType.html($.i18n._('core-recon')["no-type"]);
   this._elmts.or_proc_autoMatch.html($.i18n._('core-recon')["auto-match"]);
   this._elmts.or_proc_max_candidates.html($.i18n._('core-recon')["max-candidates"]);
@@ -222,8 +222,6 @@ ReconStandardServicePanel.prototype._wireEvents = function() {
     suggestOptions.key = null;
     suggestOptions.query_param_name = "prefix";
     input.suggestT(suggestOptions);
-  } else if (this._isInFreebaseSchemaSpace()) {
-    input.suggestT({ filter : '(all type:/type/type)' });
   }
 
   input.bind("fb-select", function(e, data) {
@@ -251,20 +249,7 @@ ReconStandardServicePanel.prototype._rewirePropertySuggests = function(type) {
       suggestOptions.ac_param = { schema: typeof type == "string" ? type : type.id };
     }
     inputs.suggestP(suggestOptions);
-  } else if (this._isInFreebaseSchemaSpace()) {
-    var namespace = (type) ? (typeof type == "string" ? type : type.id) : "/common/topic"
-    inputs.suggestP({
-      filter : '(should (any namespace:/type/object namespace:' + namespace + '))'
-    });
   }
-};
-
-ReconStandardServicePanel.prototype._isInFreebaseIdentifierSpace = function() {
-  return ReconciliationManager.isFreebaseIdOrMid(this._service.identifierSpace);
-};
-
-ReconStandardServicePanel.prototype._isInFreebaseSchemaSpace = function() {
-  return ReconciliationManager.isFreebaseId(this._service.schemaSpace);
 };
 
 ReconStandardServicePanel.prototype.start = function() {
@@ -331,7 +316,7 @@ ReconStandardServicePanel.prototype.start = function() {
         type: (type) ? { id: type.id, name: type.name } : null,
         autoMatch: this._elmts.automatchCheck[0].checked,
         columnDetails: columnDetails,
-        limit: this._elmts.maxCandidates[0].value
+        limit: parseInt(this._elmts.maxCandidates[0].value) || 0
       })
     },
     { cellsChanged: true, columnStatsChanged: true }

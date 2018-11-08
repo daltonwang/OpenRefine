@@ -34,19 +34,20 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package com.google.refine.importers;
 
 import java.io.IOException;
+import java.io.Reader;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
 import org.json.JSONObject;
 
-import com.google.refine.ProjectMetadata;
 import com.google.refine.expr.ExpressionUtils;
 import com.google.refine.importing.ImportingJob;
 import com.google.refine.model.Cell;
 import com.google.refine.model.Column;
 import com.google.refine.model.Project;
 import com.google.refine.model.Row;
+import com.google.refine.model.metadata.ProjectMetadata;
 import com.google.refine.util.JSONUtilities;
 
 abstract public class TabularImportingParserBase extends ImportingParserBase {
@@ -199,5 +200,10 @@ abstract public class TabularImportingParserBase extends ImportingParserBase {
         } catch (IOException e) {
             exceptions.add(e);
         }
+    }
+
+    public void parseOneFile(Project project, ProjectMetadata metadata, ImportingJob job, String fileSource,
+            Reader dataReader, int limit, JSONObject options, List<Exception> exceptions) {
+        super.parseOneFile(project, metadata, job, fileSource, dataReader, limit, options, exceptions);
     }
 }

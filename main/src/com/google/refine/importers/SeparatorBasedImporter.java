@@ -49,15 +49,17 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.commons.lang.StringEscapeUtils;
+import org.apache.commons.lang3.StringEscapeUtils;
+import org.apache.commons.lang3.StringUtils;
+
 import org.json.JSONObject;
 
 import au.com.bytecode.opencsv.CSVParser;
 
-import com.google.refine.ProjectMetadata;
 import com.google.refine.importing.ImportingJob;
 import com.google.refine.importing.ImportingUtilities;
 import com.google.refine.model.Project;
+import com.google.refine.model.metadata.ProjectMetadata;
 import com.google.refine.util.JSONUtilities;
 
 public class SeparatorBasedImporter extends TabularImportingParserBase {
@@ -75,6 +77,7 @@ public class SeparatorBasedImporter extends TabularImportingParserBase {
         
         JSONUtilities.safePut(options, "guessCellValueTypes", false);
         JSONUtilities.safePut(options, "processQuotes", true);
+        JSONUtilities.safePut(options, "quoteCharacter", String.valueOf(CSVParser.DEFAULT_QUOTE_CHARACTER));
 
         return options;
     }
@@ -98,9 +101,37 @@ public class SeparatorBasedImporter extends TabularImportingParserBase {
         boolean processQuotes = JSONUtilities.getBoolean(options, "processQuotes", true);
         boolean strictQuotes = JSONUtilities.getBoolean(options, "strictQuotes", false);
         
+        
+        List<Object> retrievedColumnNames = null;
+        if (options.has("columnNames")) {
+          String[] strings = JSONUtilities.getStringArray(options, "columnNames");
+          if (strings.length > 0) {
+            retrievedColumnNames = new ArrayList<Object>();
+            for (String s : strings) {
+              s = s.trim();
+              if (!s.isEmpty()) {
+                retrievedColumnNames.add(s);
+              }
+            }
+
+            if (!retrievedColumnNames.isEmpty()) {
+              JSONUtilities.safePut(options, "headerLines", 1);
+            } else {
+              retrievedColumnNames = null;
+            }
+          }
+        }
+        final List<Object> columnNames = retrievedColumnNames;
+        
+        Character quote = CSVParser.DEFAULT_QUOTE_CHARACTER;
+        String quoteCharacter = JSONUtilities.getString(options, "quoteCharacter", null);
+        if (quoteCharacter != null && quoteCharacter.trim().length() == 1) {
+            quote = quoteCharacter.trim().charAt(0);
+        }
+        
         final CSVParser parser = new CSVParser(
             sep,
-            CSVParser.DEFAULT_QUOTE_CHARACTER,
+            quote,
             (char) 0, // we don't want escape processing
             strictQuotes,
             CSVParser.DEFAULT_IGNORE_LEADING_WHITESPACE,
@@ -109,18 +140,25 @@ public class SeparatorBasedImporter extends TabularImportingParserBase {
         final LineNumberReader lnReader = new LineNumberReader(reader);
         
         TableDataReader dataReader = new TableDataReader() {
+            boolean usedColumnNames = false;
             @Override
             public List<Object> getNextRowOfCells() throws IOException {
+                if (columnNames != null && !usedColumnNames) {
+                    usedColumnNames = true;
+                    return columnNames;
+                  } else {
                 String line = lnReader.readLine();
                 if (line == null) {
                     return null;
                 } else {
                     return getCells(line, parser, lnReader);
                 }
+                  }
             }
         };
         
         TabularImportingParserBase.readTable(project, metadata, job, dataReader, fileSource, limit, options, exceptions);
+        super.parseOneFile(project, metadata, job, fileSource, lnReader, limit, options, exceptions);
     }
     
     static protected ArrayList<Object> getCells(String line, CSVParser parser, LineNumberReader lnReader)

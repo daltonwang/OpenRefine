@@ -34,9 +34,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package com.google.refine.expr;
 
 import java.io.Serializable;
-import java.util.Calendar;
+import java.time.OffsetDateTime;
 import java.util.Collection;
-import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
@@ -125,11 +124,9 @@ public class ExpressionUtils {
 
     static public boolean sameValue(Object v1, Object v2) {
         if (v1 == null) {
-            return (v2 == null)
-                    || (v2 instanceof String && ((String) v2).length() == 0);
+            return (v2 == null) ;
         } else if (v2 == null) {
-            return (v1 == null)
-                    || (v1 instanceof String && ((String) v1).length() == 0);
+            return (v1 == null);
         } else {
             return v1.equals(v2);
         }
@@ -140,8 +137,7 @@ public class ExpressionUtils {
             v instanceof Number ||
             v instanceof String ||
             v instanceof Boolean ||
-            v instanceof Date ||
-            v instanceof Calendar ||
+            v instanceof OffsetDateTime ||
             v instanceof EvalError;
     }
 

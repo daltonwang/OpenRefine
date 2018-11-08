@@ -1,15 +1,24 @@
-#OpenRefine
+# OpenRefine
 
-[![Build Status](https://travis-ci.org/OpenRefine/OpenRefine.png?branch=master)](https://travis-ci.org/OpenRefine/OpenRefine) [![Bountysource](https://www.bountysource.com/badge/tracker?tracker_id=32795)](https://www.bountysource.com/trackers/32795-open-refine?utm_source=32795&utm_medium=shield&utm_campaign=TRACKER_BADGE)
+[![Join the chat at https://gitter.im/OpenRefine/OpenRefine](https://badges.gitter.im/OpenRefine/OpenRefine.svg)](https://gitter.im/OpenRefine/OpenRefine?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Build Status](https://travis-ci.org/OpenRefine/OpenRefine.png?branch=master)](https://travis-ci.org/OpenRefine/OpenRefine) [![Codacy Badge](https://api.codacy.com/project/badge/Grade/210578308bba42c5922c767493e83cf4)](https://www.codacy.com/app/OpenRefine/OpenRefine) [![Codacy Badge](https://api.codacy.com/project/badge/Coverage/210578308bba42c5922c767493e83cf4)](https://www.codacy.com/app/OpenRefine/OpenRefine) [![Translation progress](https://hosted.weblate.org/widgets/openrefine/-/svg-badge.svg)](https://hosted.weblate.org/engage/openrefine/?utm_source=widget)
 
-OpenRefine is a power tool that allows you to load data, understand it,
+OpenRefine is a Java-based power tool that allows you to load data, understand it,
 clean it up, reconcile it, and augment it with data coming from
-the web. All with the comfort and privacy of your own computer.
+the web. All from a web browser and the comfort and privacy of your own computer.
+
+[<img src="https://github.com/OpenRefine/OpenRefine/blob/master/graphics/icon/open-refine-320px.png" align="right">](http://openrefine.org)
 
 Download
 -----------------------
-* [Latest Beta 2.6 rc2 - Recommended](https://github.com/OpenRefine/OpenRefine/releases)
-* [Latest Stable 2.5](https://github.com/OpenRefine/OpenRefine/releases/latest)
+* [OpenRefine Releases](https://github.com/OpenRefine/OpenRefine/releases)
+
+Run from source
+------------------
+If you have cloned this repository to your computer, you can run OpenRefine with:
+* `./refine` on Mac OS and Linux
+* `refine.bat` on Windows
+
+This requires JDK 8 and Apache Maven.
 
 Documentation and Videos
 -------------------------
@@ -19,8 +28,9 @@ Documentation and Videos
 
 Contributing to the project
 ---------------------------
-* [Donate $](https://www.bountysource.com/teams/openrefine/issues)
 * [Developers Guide & Architecture](https://github.com/OpenRefine/OpenRefine/wiki/Documentation-For-Developers)
+* [Contributing Guide](https://github.com/OpenRefine/OpenRefine/blob/master/CONTRIBUTING.md)
+* [Project Governance](https://github.com/OpenRefine/OpenRefine/blob/master/GOVERNANCE.md)
 
 Contact us
 ----------
@@ -30,7 +40,7 @@ Contact us
 Licensing and legal issues
 --------------------------
 OpenRefine is open source software and is licensed under the BSD license
-located in the [LICENSE.txt](LICENSE.txt). See that file also for information on open source
+located in the [LICENSE.txt](LICENSE.txt). See the folder `licenses` for information on open source
 libraries that OpenRefine depends on.
 
 Credits
@@ -41,22 +51,4 @@ was acquired by Google, Inc. in July 2010 and the product was renamed Google Ref
 In October 2012, it was renamed OpenRefine as it transitioned to a 
 community-supported product.
 
-This is the full list of contributors (in chronological order):
-
- - David Huynh <dfhuynh@google.com>
- - Stefano Mazzocchi <stefanom@google.com>
- - Vishal Talwar <vtalwar@google.com> 
- - Jeff Fry <jfry@google.com>
- - Will Moffat <wdm@google.com>
- - James Home <jameshome@google.com>
- - Iain Sproat <iainsproat@gmail.com>
- - Tom Morris <tfmorris@gmail.com>
- - Heather Campbell <campbellh@google.com>
- - Thad Guidry <thadguidry@gmail.com>
- - Paul Makepeace <paulm@paulm.com>
- - Tomaž Šolc <tomaz.solc@zemanta.com>
- - Gabriel Sjoberg <GabrielSjoberg@gmail.com>
- - Rod Salazar <rodrod.salazar@gmail.com>
- - pxb <pxb1988@gmail.com>
-
-
+See `AUTHORS.md` for the list of OpenRefine contributors.

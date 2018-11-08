@@ -167,10 +167,23 @@ public class ReconJudgeOneCellCommand extends Command {
             }
 
             Judgment oldJudgment = cell.recon == null ? Judgment.None : cell.recon.judgment;
+            
+            Recon newRecon = null;
+            if (cell.recon != null) {
+                newRecon = cell.recon.dup(historyEntryID);
+            } else if (identifierSpace != null && schemaSpace != null) {
+                newRecon = new Recon(historyEntryID, identifierSpace, schemaSpace);
+            } else if (column.getReconConfig() != null) {
+                newRecon = column.getReconConfig().createNewRecon(historyEntryID);
+            } else {
+                // This should only happen if we are judging a cell in a column that
+                // has never been reconciled before.
+               newRecon = new Recon(historyEntryID, null, null);
+            }
 
             newCell = new Cell(
                 cell.value,
-                cell.recon == null ? new Recon(historyEntryID, identifierSpace, schemaSpace) : cell.recon.dup(historyEntryID)
+                newRecon
             );
 
             String cellDescription =
@@ -193,7 +206,7 @@ public class ReconJudgeOneCellCommand extends Command {
                 newCell.recon.judgment = Recon.Judgment.New;
                 newCell.recon.match = null;
 
-                description = "Mark to create new topic for " + cellDescription;
+                description = "Mark to create new item for " + cellDescription;
             } else {
                 newCell.recon.judgment = Recon.Judgment.Matched;
                 newCell.recon.match = this.match;

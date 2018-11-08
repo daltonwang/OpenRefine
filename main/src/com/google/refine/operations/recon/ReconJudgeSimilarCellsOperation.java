@@ -43,6 +43,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 import org.json.JSONWriter;
 
+import com.google.refine.browsing.EngineConfig;
 import com.google.refine.browsing.RowVisitor;
 import com.google.refine.expr.ExpressionUtils;
 import com.google.refine.history.Change;
@@ -56,6 +57,7 @@ import com.google.refine.model.ReconCandidate;
 import com.google.refine.model.Row;
 import com.google.refine.model.changes.CellChange;
 import com.google.refine.model.changes.ReconChange;
+import com.google.refine.model.recon.ReconConfig;
 import com.google.refine.operations.EngineDependentMassCellOperation;
 import com.google.refine.operations.OperationRegistry;
 
@@ -92,7 +94,7 @@ public class ReconJudgeSimilarCellsOperation extends EngineDependentMassCellOper
         }
         
         return new ReconJudgeSimilarCellsOperation(
-            engineConfig,
+            EngineConfig.reconstruct(engineConfig),
             obj.getString("columnName"),
             obj.getString("similarValue"),
             judgment,
@@ -102,7 +104,7 @@ public class ReconJudgeSimilarCellsOperation extends EngineDependentMassCellOper
     }
     
     public ReconJudgeSimilarCellsOperation(
-        JSONObject         engineConfig, 
+        EngineConfig         engineConfig, 
         String             columnName, 
         String             similarValue,
         Judgment        judgment,
@@ -123,7 +125,7 @@ public class ReconJudgeSimilarCellsOperation extends EngineDependentMassCellOper
         writer.object();
         writer.key("op"); writer.value(OperationRegistry.s_opClassToName.get(this.getClass()));
         writer.key("description"); writer.value(getBriefDescription(null));
-        writer.key("engineConfig"); writer.value(getEngineConfig());
+        writer.key("engineConfig"); getEngineConfig().write(writer, options);
         writer.key("columnName"); writer.value(_columnName);
         writer.key("similarValue"); writer.value(_similarValue);
         writer.key("judgment"); writer.value(Recon.judgmentToString(_judgment));
@@ -142,14 +144,14 @@ public class ReconJudgeSimilarCellsOperation extends EngineDependentMassCellOper
                 _similarValue + "\" in column " + _columnName;
         } else if (_judgment == Judgment.New) {
             if (_shareNewTopics) {
-                return "Mark to create one single new topic for all cells containing \"" +
+                return "Mark to create one single new item for all cells containing \"" +
                     _similarValue + "\" in column " + _columnName;
             } else {
-                return "Mark to create one new topic for each cell containing \"" +
+                return "Mark to create one new item for each cell containing \"" +
                     _similarValue + "\" in column " + _columnName;
             }
         } else if (_judgment == Judgment.Matched) {
-            return "Match topic " + 
+            return "Match item " + 
                 _match.name +  " (" +
                 _match.id + ") for cells containing \"" +
                 _similarValue + "\" in column " + _columnName;
@@ -166,14 +168,14 @@ public class ReconJudgeSimilarCellsOperation extends EngineDependentMassCellOper
                 _similarValue + "\" in column " + _columnName;
         } else if (_judgment == Judgment.New) {
             if (_shareNewTopics) {
-                return "Mark to create one single new topic for " + cellChanges.size() + " cells containing \"" +
+                return "Mark to create one single new item for " + cellChanges.size() + " cells containing \"" +
                     _similarValue + "\" in column " + _columnName;
             } else {
-                return "Mark to create one new topic for each of " + cellChanges.size() + " cells containing \"" +
+                return "Mark to create one new item for each of " + cellChanges.size() + " cells containing \"" +
                     _similarValue + "\" in column " + _columnName;
             }
         } else if (_judgment == Judgment.Matched) {
-            return "Match topic " + 
+            return "Match item " + 
                 _match.name + " (" +
                 _match.id + ") for " +
                 cellChanges.size() + " cells containing \"" +
@@ -185,7 +187,8 @@ public class ReconJudgeSimilarCellsOperation extends EngineDependentMassCellOper
     @Override
     protected RowVisitor createRowVisitor(Project project, List<CellChange> cellChanges, long historyEntryID) throws Exception {
         Column column = project.columnModel.getColumnByName(_columnName);
-        
+        ReconConfig reconConfig = column.getReconConfig();
+
         return new RowVisitor() {
             int                 _cellIndex;
             List<CellChange>    _cellChanges;
@@ -221,7 +224,15 @@ public class ReconJudgeSimilarCellsOperation extends EngineDependentMassCellOper
                         Recon recon = null;
                         if (_judgment == Judgment.New && _shareNewTopics) {
                             if (_sharedNewRecon == null) {
-                                _sharedNewRecon = new Recon(_historyEntryID, null, null);
+                                if (reconConfig != null) {
+                                    _sharedNewRecon = reconConfig.createNewRecon(_historyEntryID);
+                                } else {
+                                    // This should only happen if we are creating new cells
+                                    // in a column that has not been reconciled before.
+                                    // In that case, we do not know which reconciliation service
+                                    // to use, so we fall back on the default one.
+                                    _sharedNewRecon = new Recon(_historyEntryID, null, null);
+                                }
                                 _sharedNewRecon.judgment = Judgment.New;
                                 _sharedNewRecon.judgmentBatchSize = 0;
                                 _sharedNewRecon.judgmentAction = "similar";
